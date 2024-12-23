@@ -1,5 +1,5 @@
 # arxiv-translator
-arXivの論文をGPT-4oで翻訳するためのソースコードです。
+arXivの論文をGPT-4oで翻訳するためのコードです。
 `notebook/arxiv-translatorを逐次実行.ipynb`をご利用ください。
 
 ## 特徴
