@@ -1,6 +1,5 @@
 """texの翻訳に使うコード"""
 import re
-import json
 
 def split_tex_contents(contents: str, flag=r"\section") -> list:
     """受け取ったcontentsをflagで分割, 前にくっつける.

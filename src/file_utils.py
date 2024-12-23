@@ -16,7 +16,8 @@ def unfreeze_targz(targz_path: Path, output_dir: Path) -> None:
     # tarファイルを開く
     with tarfile.open(targz_path, mode='r:gz') as tar:
         # 全てのファイルを展開
-        tar.extractall(path= Path(output_dir) / Path(targz_path).stem.split(".tar")[0] , filter="data")
+        tar.extractall(path= Path(output_dir) / Path(targz_path).stem.split(".tar")[0] ,
+                       filter="data")
 
 def copy_item(src, dst, overwrite=False):
     """

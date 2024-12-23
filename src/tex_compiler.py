@@ -4,7 +4,6 @@ import glob
 from pathlib import Path
 import subprocess
 import os
-import re
 
 def find_main_tex(source_dir: str) -> str:
     """入力されたディレクトリから、mainのtexファイルを探す。
