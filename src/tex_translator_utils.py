@@ -18,7 +18,7 @@ def split_tex_contents(contents: str, flag=r"\section") -> list:
         results.append(flag+part)
     return results
 
-def split_tex_to_chunks(contents: str, chunk_size: int, token_counter: callable):
+def split_tex_to_chunks(contents: str, token_counter: callable, chunk_size: int = None):
     """_summary_
 
     Args:
@@ -28,7 +28,7 @@ def split_tex_to_chunks(contents: str, chunk_size: int, token_counter: callable)
     Returns:
         _type_: _description_
     """
-    
+
     sections = split_tex_contents(contents=contents, flag=r"\section")
     subsections = []
     for section in sections:
@@ -39,7 +39,9 @@ def split_tex_to_chunks(contents: str, chunk_size: int, token_counter: callable)
         subsubsections += split_tex_contents(contents=subsection, flag=r"\subsubsection")
 
     max_size = max([token_counter(subsubsection) for subsubsection in subsubsections])
-    if max_size > chunk_size:
+    if chunk_size is None:
+        chunk_size = max_size
+    elif max_size > chunk_size:
         raise ValueError(f"too large subsubsection ({max_size})")
 
     chunks = []

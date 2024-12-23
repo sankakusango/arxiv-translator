@@ -4,6 +4,27 @@ import tarfile
 import os
 import shutil
 from pathlib import Path
+import requests
+
+def download_arxiv_source(arxiv_id: str, output_dir: str):
+    """_summary_
+
+    Args:
+        arxiv_id (str): _description_
+        output_dir (str): _description_
+
+    Raises:
+        ValueError: _description_
+    """
+
+    url = f"https://arxiv.org/src/{arxiv_id}"
+    response = requests.get(url, timeout=600)
+
+    if response.status_code == 200:
+        with open(os.path.join(output_dir, f"arxiv-{arxiv_id}.tar.gz"), "wb") as f:
+            f.write(response.content)
+    else:
+        raise ValueError(f"Failed to download. HTTP status code: {response.status_code}")
 
 def unfreeze_targz(targz_path: Path, output_dir: Path) -> None:
     """.tar.gzの解凍をする。
