@@ -1,0 +1,21 @@
+version: '3.9'
+
+services:
+  web:
+    build: .
+    container_name: arxiv-translator
+    ports:
+      - 5000:5000 # flask
+      - 8888:8888 # jupyter
+    environment:
+      TZ: "Asia/Tokyo"
+      FLASK_ENV: "development"
+      FLASK_APP: "/app/app.py"
+    volumes:
+      - ./app:/app
+      - ./config:/config
+      - ./data:/data
+      - ./notebook:/notebook
+      - .:/arxiv-translator
+    working_dir: /arxiv-translator
+    command: bash -c 'flask run --host=0.0.0.0 & jupyter lab --allow-root --ip="0.0.0.0" --no-browser --ServerApp.token="a"'

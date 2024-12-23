@@ -1,0 +1,4 @@
+Flask
+jupyterlab
+openai
+tiktoken
