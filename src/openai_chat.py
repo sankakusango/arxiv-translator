@@ -1,4 +1,4 @@
-import os
+"""openaiのAPIを叩く"""
 from openai import OpenAI
 import tiktoken
 
