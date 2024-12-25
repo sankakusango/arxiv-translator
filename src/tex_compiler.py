@@ -5,6 +5,21 @@ from pathlib import Path
 import subprocess
 import os
 
+def find_tex_files(source_dir: str) -> str:
+    """_summary_
+
+    Args:
+        source_dir (str): _description_
+
+    Returns:
+        str: _description_
+    """
+
+    # 指定されたディレクトリ内のすべての .tex ファイルを取得
+    tex_files = glob.glob(os.path.join(source_dir, "**", "*.tex"), recursive=True)
+
+    return tex_files
+
 def find_main_tex(source_dir: str) -> str:
     """入力されたディレクトリから、mainのtexファイルを探す。
 
@@ -18,8 +33,7 @@ def find_main_tex(source_dir: str) -> str:
         str: texのファイルパス
     """
 
-    # 指定されたディレクトリ内のすべての .tex ファイルを取得
-    tex_files = glob.glob( os.path.join(source_dir, "*.tex") )
+    tex_files = find_tex_files(source_dir=source_dir)
 
     main_tex_file: str = None
     # .tex ファイルを探索して \documentclass を含む最初のファイルを探す
