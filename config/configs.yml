@@ -1,3 +1,9 @@
+filepath:
+  tar_gz: /data/0_tar_gz_data  #arxivからダウンロードした*.tar.gz置き場
+  raw:    /data/1_raw_data
+  work:   /data/2_working_data
+  output: /data/3_output_data
+
 tex:
   pre_text: |
     % 日本語対応

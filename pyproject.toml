@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "arxiv-translator"
+version = "0.1.0"
+description = "arXivを翻訳するためのツールです。"
+authors = ["Dai Nakashima <sankakusango@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://d-nakashima.com"
+packages = [
+  { include = "arxiv_translator", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+openai = ">=1.57.4"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -6,27 +6,32 @@ import shutil
 from pathlib import Path
 import requests
 
-def download_arxiv_source(arxiv_id: str, output_dir: str):
-    """_summary_
+def download_arxiv_source(arxiv_id: str, output_dir: Path) -> Path:
+    """arXivのページから、コンパイル前のデータの圧縮されたデータをダウンロードする。
 
     Args:
-        arxiv_id (str): _description_
-        output_dir (str): _description_
+        arxiv_id (str): arxivのid. バージョン指定する場合はバージョンまで含む
+        output_dir (str): ダウンロード先. ファイル名は'arxiv-{arxiv_id}.tar.gz'で固定.
 
     Raises:
-        ValueError: _description_
+        ValueError: ダウンロードに失敗したらエラー.
+
+    Returns:
+        Path: ダウンロードしたファイルパス
     """
 
     url = f"https://arxiv.org/src/{arxiv_id}"
     response = requests.get(url, timeout=600)
+    output_path = Path(output_dir) / f"arxiv-{arxiv_id}.tar.gz"
 
     if response.status_code == 200:
-        with open(os.path.join(output_dir, f"arxiv-{arxiv_id}.tar.gz"), "wb") as f:
+        with open(output_path, "wb") as f:
             f.write(response.content)
+        return Path(output_path)
     else:
         raise ValueError(f"Failed to download. HTTP status code: {response.status_code}")
 
-def unfreeze_targz(targz_path: Path, output_dir: Path) -> None:
+def unfreeze_targz(targz_path: Path, output_dir: Path) -> Path:
     """.tar.gzの解凍をする。
 
     Args:
@@ -34,11 +39,12 @@ def unfreeze_targz(targz_path: Path, output_dir: Path) -> None:
         output_path (str, optional): 出力先のパス
     """
 
-    # tarファイルを開く
+    output_path = Path(output_dir) / Path(targz_path).stem.split(".tar")[0]
+
     with tarfile.open(targz_path, mode='r:gz') as tar:
-        # 全てのファイルを展開
-        tar.extractall(path= Path(output_dir) / Path(targz_path).stem.split(".tar")[0] ,
-                       filter="data")
+        tar.extractall(path=output_path, filter="data")
+
+    return output_path
 
 def copy_item(src, dst, overwrite=False):
     """
