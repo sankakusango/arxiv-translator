@@ -1,24 +1,23 @@
 """texをコンパイルするための諸々"""
 
-import glob
 from pathlib import Path
 import subprocess
-import os
 
-def find_tex_files(source_dir: str) -> str:
-    """_summary_
+
+def find_tex_files(source_dir: str) -> list:
+    """指定されたディレクトリ内のすべての .tex ファイルを取得する。
 
     Args:
-        source_dir (str): _description_
+        source_dir (str): 検索対象のディレクトリ
 
     Returns:
-        str: _description_
+        list: texファイルのリスト
     """
 
     # 指定されたディレクトリ内のすべての .tex ファイルを取得
-    tex_files = glob.glob(os.path.join(source_dir, "**", "*.tex"), recursive=True)
+    tex_paths = Path(source_dir).rglob("*.tex")
 
-    return tex_files
+    return tex_paths
 
 def find_main_tex(source_dir: str) -> str:
     """入力されたディレクトリから、mainのtexファイルを探す。

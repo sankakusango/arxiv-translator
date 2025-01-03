@@ -3,16 +3,12 @@ from openai import OpenAI
 import tiktoken
 
 class OpenAIChat:
-    """OpenAIのAPIを叩いて出力させるクラス
-
-    Returns:
-        _type_: _description_
-    """
+    """OpenAIのAPIを叩いて出力させるクラス"""
 
     _api_key: str
     _model: str
     _client: OpenAI
-    _template: str
+    _template: str #テンプレートには, {prompt}を含むこと。
 
     def __init__(self, api_key: str, model: str, template: str = None):
 
@@ -23,39 +19,43 @@ class OpenAIChat:
 
     @property
     def api_key(self):
-        """のゲッター"""
+        """apiキーのゲッター"""
         return self._api_key
 
     @api_key.setter
     def api_key(self, value):
+        """apiキーを設定すると、clientにも反映する。"""
         self._api_key = value
         self._client = OpenAI(api_key=self.api_key)
 
     @property
     def model(self):
-        """のゲッター"""
+        """モデル名のゲッター"""
         return self._model
 
     @model.setter
     def model(self, value):
+        """モデル名のセッター"""
         self._model = value
 
     @property
     def client(self):
-        """のゲッター"""
+        """clientのゲッター"""
         return self._client
 
     @client.setter
     def client(self, value):
+        """clientのセッター"""
         self._client = value
 
     @property
     def template(self):
-        """のゲッター"""
+        """テンプレートのゲッター"""
         return self._template
 
     @template.setter
     def template(self, value):
+        """テンプレートのセッター"""
         if not "{prompt}" in value:
             raise ValueError("template should include {prompt}.")
         self._template = value

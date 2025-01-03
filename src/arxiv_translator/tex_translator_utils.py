@@ -18,15 +18,15 @@ def split_tex_contents(contents: str, flag=r"\section") -> list:
         results.append(flag+part)
     return results
 
-def split_tex_to_chunks(contents: str, token_counter: callable, chunk_size: int = None):
-    """_summary_
+def split_tex_to_chunks(contents: str, token_counter: callable, chunk_size: int = None) -> list:
+    """texファイルを翻訳のためにチャンク分けする。
 
     Args:
-        contents (str): _description_
-        chunk_size (int): _description_
+        contents (str): 元ファイルのテキスト
+        chunk_size (int): 分けるチャンクのサイズ
 
     Returns:
-        _type_: _description_
+        list: チャンクのリスト
     """
 
     sections = split_tex_contents(contents=contents, flag=r"\section")
