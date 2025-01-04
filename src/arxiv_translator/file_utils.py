@@ -78,35 +78,25 @@ def copy_item(src, dst, overwrite=False):
 
 def copy_pdf_file(source_dir, target_path):
     """
-    指定されたディレクトリからPDFファイルを探し、
-    指定されたパスにコピーします。
+    指定されたディレクトリから最初に見つかったPDFファイルを指定されたパスにコピーします。
 
     Parameters:
         source_dir (str): PDFファイルを探すディレクトリのパス。
         target_path (str): PDFファイルをコピーする先の完全なパス（ファイル名を含む）。
 
     Returns:
-        str: コピーしたファイルのパス。
-
-    Raises:
-        FileNotFoundError: 指定のディレクトリにPDFファイルが見つからない場合。
-        ValueError: 複数のPDFファイルが見つかった場合。
+        Path: コピーしたファイルのパス。
     """
-    # ディレクトリ内のファイル一覧を取得
-    pdf_files = [f for f in os.listdir(source_dir) if f.endswith('.pdf')]
+    source_dir = Path(source_dir)
+    target_path = Path(target_path)
 
-    if len(pdf_files) == 0:
-        raise FileNotFoundError("指定されたディレクトリにPDFファイルが見つかりません。")
-    elif len(pdf_files) > 1:
-        raise ValueError("指定されたディレクトリに複数のPDFファイルがあります。")
+    # ディレクトリ内の最初のPDFファイルを取得
+    pdf_file = next(source_dir.glob("*.pdf"))
 
-    # PDFファイルの完全なパスを取得
-    pdf_file = pdf_files[0]
-    source_path = os.path.join(source_dir, pdf_file)
-
-    # コピー先ディレクトリが存在しない場合は作成
-    target_dir = os.path.dirname(target_path)
-    os.makedirs(target_dir, exist_ok=True)
+    # コピー先ディレクトリを作成
+    target_path.parent.mkdir(parents=True, exist_ok=True)
 
     # ファイルをコピー
-    shutil.copy2(source_path, target_path)
+    shutil.copy2(pdf_file, target_path)
+
+    return target_path
