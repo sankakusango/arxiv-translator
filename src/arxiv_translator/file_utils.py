@@ -68,20 +68,11 @@ def copy_item(src, dst, overwrite=False):
     if os.path.exists(dst) and not overwrite:
         raise FileExistsError(f"コピー先がすでに存在しています: {dst}")
 
-    # コピー先が存在していて上書きする場合、削除
-    if os.path.exists(dst) and overwrite:
-        if os.path.isfile(dst) or os.path.islink(dst):
-            os.remove(dst)  # ファイルを削除
-        elif os.path.isdir(dst):
-            shutil.rmtree(dst)  # フォルダを削除
-
     # ファイルかフォルダかを判定してコピー
     if os.path.isfile(src):
-        shutil.copy2(src, dst)  # メタデータも含めてコピー
-        print(f"ファイルが正常にコピーされました: {dst}")
+        shutil.copy2(src, dst)
     elif os.path.isdir(src):
-        shutil.copytree(src, dst)  # フォルダ全体をコピー
-        print(f"フォルダが正常にコピーされました: {dst}")
+        shutil.copytree(src, dst, dirs_exist_ok=overwrite)
     else:
         raise ValueError(f"無効なコピー元: {src}")
 
