@@ -4,7 +4,10 @@ import tarfile
 import os
 import shutil
 from pathlib import Path
+import logging
 import requests
+
+logger = logging.getLogger(__name__)
 
 def download_arxiv_source(arxiv_id: str, output_dir: Path) -> Path:
     """arXivのページから、コンパイル前のデータの圧縮されたデータをダウンロードする。
@@ -27,6 +30,7 @@ def download_arxiv_source(arxiv_id: str, output_dir: Path) -> Path:
     if response.status_code == 200:
         with open(output_path, "wb") as f:
             f.write(response.content)
+        logger.info("ダウンロード成功, from %s to: %s", arxiv_id, output_path)
         return Path(output_path)
     else:
         raise ValueError(f"Failed to download. HTTP status code: {response.status_code}")
@@ -37,12 +41,16 @@ def unfreeze_targz(targz_path: Path, output_dir: Path) -> Path:
     Args:
         targz_path (str): 圧縮されたファイルのパス
         output_path (str, optional): 出力先のパス
+        
+    Returns:
+        Path: ダウンロードしたファイルパス
     """
 
     output_path = Path(output_dir) / Path(targz_path).stem.split(".tar")[0]
 
     with tarfile.open(targz_path, mode='r:gz') as tar:
         tar.extractall(path=output_path, filter="data")
+        logger.info("解凍成功, from %s to: %s", targz_path, output_path)
 
     return output_path
 
@@ -78,12 +86,14 @@ def copy_item(src, dst, overwrite=False):
     # ファイルかフォルダかを判定してコピー
     if os.path.isfile(src):
         shutil.copy2(src, dst)  # メタデータも含めてコピー
-        print(f"ファイルが正常にコピーされました: {dst}")
+        logger.info("ファイルが正常にコピーされました, dst: %s", dst)
     elif os.path.isdir(src):
         shutil.copytree(src, dst)  # フォルダ全体をコピー
-        print(f"フォルダが正常にコピーされました: {dst}")
+        logger.info("フォルダが正常にコピーされました, dst: %s", dst)
     else:
         raise ValueError(f"無効なコピー元: {src}")
+
+    return Path(dst)
 
 def copy_pdf_file(source_dir, target_path):
     """
