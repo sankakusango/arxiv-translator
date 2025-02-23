@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Translate</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    #log { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; background: #f9f9f9; }
+    #form_area { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div id="form_area">
+    <h2>arXiv ID を入力してください</h2>
+    <form method="post" action="/translate">
+      <input type="text" name="arxiv_id" required placeholder="例: 1234.5678">
+      <input type="submit" value="Translate">
+    </form>
+  </div>
+
+  <h3>ログ</h3>
+  <div id="log"></div>
+
+  <!-- result エリアは初期状態では空 -->
+  <div id="result"></div>
+
+  <script>
+    const logDiv = document.getElementById("log");
+    const resultDiv = document.getElementById("result");
+    const evtSource = new EventSource("/logs");
+
+    evtSource.onmessage = function(e) {
+        if (e.data.trim() !== "") {
+            // "PDF_LINK:" を含むメッセージが来た場合、リンクを更新する
+            const match = e.data.match(/PDF_LINK:\s*(\/\S+)/);
+            if (match) {
+                const pdfUrl = match[1].trim();
+                resultDiv.innerHTML = `<p>PDFが生成されました：<a href="${pdfUrl}" target="_blank">PDFを表示</a></p>`;
+            } else {
+                // 通常のログメッセージはログエリアに追記する
+                const p = document.createElement("p");
+                p.textContent = e.data;
+                logDiv.appendChild(p);
+                // ログエリアを下までスクロール
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
+        }
+    };
+  </script>
+</body>
+</html>
