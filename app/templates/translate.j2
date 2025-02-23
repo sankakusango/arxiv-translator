@@ -2,50 +2,130 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <title>Translate</title>
-  <style>
-    body { font-family: Arial, sans-serif; }
-    #log { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; background: #f9f9f9; }
-    #form_area { margin-bottom: 20px; }
-  </style>
+  <title>arXiv翻訳</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <!-- 外部CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-  <div id="form_area">
-    <h2>arXiv ID を入力してください</h2>
-    <form method="post" action="/translate">
-      <input type="text" name="arxiv_id" required placeholder="例: 1234.5678">
-      <input type="submit" value="Translate">
-    </form>
-  </div>
 
-  <h3>ログ</h3>
-  <div id="log"></div>
+<div class="container my-4">
+  <h1 class="mb-4">arXiv翻訳</h1>
 
-  <!-- result エリアは初期状態では空 -->
-  <div id="result"></div>
+  <!-- arXiv ID 入力フォーム -->
+  <form method="post" action="/translate" class="mb-4">
+    <div class="input-group">
+      <input type="text" name="arxiv_id" id="arxiv_id" class="form-control" placeholder="例: 1234.5678" required>
+      <button type="submit" class="btn btn-primary">翻訳する</button>
+    </div>
+  </form>
 
-  <script>
-    const logDiv = document.getElementById("log");
-    const resultDiv = document.getElementById("result");
-    const evtSource = new EventSource("/logs");
+  <!-- job_id が存在する場合のみ、進捗やログを表示する -->
+  {% if job_id %}
+    <div class="mb-3" id="statusArea">
+      <!-- 進捗状況を表示（動的に変更） -->
+      <p>翻訳を待機しています...</p>
+    </div>
 
-    evtSource.onmessage = function(e) {
-        if (e.data.trim() !== "") {
-            // "PDF_LINK:" を含むメッセージが来た場合、リンクを更新する
-            const match = e.data.match(/PDF_LINK:\s*(\/\S+)/);
-            if (match) {
-                const pdfUrl = match[1].trim();
-                resultDiv.innerHTML = `<p>PDFが生成されました：<a href="${pdfUrl}" target="_blank">PDFを表示</a></p>`;
-            } else {
-                // 通常のログメッセージはログエリアに追記する
-                const p = document.createElement("p");
-                p.textContent = e.data;
-                logDiv.appendChild(p);
-                // ログエリアを下までスクロール
-                logDiv.scrollTop = logDiv.scrollHeight;
-            }
+    <div id="result">
+      <!-- PDF のリンクなどの結果表示（動的に更新） -->
+    </div>
+
+    <!-- ログ表示部分（折りたたみ） -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#logCollapse" aria-expanded="false" aria-controls="logCollapse">
+          ログを表示 / 非表示
+        </button>
+      </div>
+      <div id="logCollapse" class="collapse">
+        <div class="card-body" id="log">
+          <!-- ログの行を JavaScript で append していく -->
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Bootstrap JS (依存の Popper.js を含むバンドル) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+{% if job_id %}
+<script>
+  // Django テンプレート変数の受け取り
+  const jobId = "{{ job_id }}";
+  const statusArea = document.getElementById("statusArea");
+  const logDiv = document.getElementById("log");
+  const resultDiv = document.getElementById("result");
+
+  let pdfLink = null;     // PDFのリンクを保存
+  let hasError = false;   // エラーが発生したかどうか
+
+  // SSE でサーバーからログを受け取る
+  const evtSource = new EventSource("/logs?job_id=" + jobId);
+
+  evtSource.onmessage = function(e) {
+    const msg = e.data.trim();
+    if (!msg) return;
+
+    // ログを画面下部に追加
+    const p = document.createElement("p");
+    p.textContent = msg;
+    logDiv.appendChild(p);
+    logDiv.scrollTop = logDiv.scrollHeight; // 最新行へスクロール
+
+    // PDFリンクを含む行があればキャプチャ
+    const match = msg.match(/PDF_LINK:\s*(\/\S+)/);
+    if (match) {
+      pdfLink = match[1].trim();
+    }
+
+    // エラーを検知
+    if (msg.toLowerCase().includes("error") || msg.toLowerCase().includes("fail")) {
+      hasError = true;
+    }
+
+    // ログメッセージの内容によってステータス表示を更新
+    if (msg.includes("Acquired for")) {
+      statusArea.innerHTML = `<p>翻訳を開始しました (arXiv ID: {{ arxiv_id }})</p>`;
+    } else if (msg.includes("Waiting for")) {
+      statusArea.innerHTML = "<p>翻訳待機中 (arXiv ID: {{ arxiv_id }})...</p>";
+    } else if (msg.includes("Downloading source file")) {
+      statusArea.innerHTML = "<p>ソースファイルをダウンロード中...</p>";
+    } else if (msg.includes("Processing document")) {
+      statusArea.innerHTML = "<p>ドキュメントを翻訳中...</p>";
+    } else if (msg.includes("Generating PDF")) {
+      statusArea.innerHTML = "<p>PDFをコンパイル中...</p>";
+    } else if (msg.includes("generated")) {
+      statusArea.innerHTML = "<p>翻訳が完了しました。</p>";
+    }
+
+    // 最終的にジョブ完了を示すメッセージが来たら SSE を閉じる
+    if (msg.includes("COMPLETED") || msg.includes("Translation job finished")) {
+      evtSource.close();
+
+      // 成否の判定
+      if (hasError) {
+        if (pdfLink) {
+          // PDF はあるがエラーが出ている → 部分的に失敗
+          statusArea.innerHTML = "<p>翻訳は部分的に失敗しました。生成されたPDFに不備がある可能性があります。</p>";
+        } else {
+          // PDF が無い → 完全に失敗
+          statusArea.innerHTML = "<p>翻訳に失敗しました。PDFは生成されていません。</p>";
         }
-    };
-  </script>
+      } else {
+        statusArea.innerHTML = "<p>翻訳が正常に完了しました。</p>";
+      }
+
+      // PDF があるならリンクを表示
+      if (pdfLink) {
+        resultDiv.innerHTML = `<p>PDFが生成されました：<a href="${pdfLink}" target="_blank">PDFを表示</a></p>`;
+      }
+    }
+  };
+</script>
+{% endif %}
+
 </body>
 </html>

@@ -1,0 +1,14 @@
+/* body の余白 */
+body {
+    margin-top: 20px;
+  }
+  
+  /* ログ表示エリアの見た目 */
+  #log {
+    max-height: 300px;
+    overflow-y: auto;
+    background: #f9f9f9;
+    padding: 10px;
+    border: 1px solid #ccc;
+  }
+  

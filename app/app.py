@@ -194,11 +194,11 @@ class JobQueues:
             if current < self.concurrency_limit:
                 self.increment_slot()
                 if self.current_slots() <= self.concurrency_limit:
-                    logger.info(f"スロット確保 for {arxiv_id} (current running: {current})")
+                    logger.info(f"Acquired for {arxiv_id} (current running: {current})")
                     break
                 else:
                     self.decrement_slot()
-            logger.info(f"待機中 for {arxiv_id} (currently running: {current})")
+            logger.info(f"Waiting for {arxiv_id} (currently running: {current})")
             time.sleep(1)
 
 # Redis 接続およびジョブキューのインスタンス生成
@@ -251,6 +251,7 @@ def translate(arxiv_id: str, logger: logging.Logger) -> str:
     pdf_url = f"/pdf/{pdf_filename}"
     logger.info(f"PDF generated at: {pdf_url}")
     logger.info(f"PDF_LINK: {pdf_url}")
+    logger.info("COMPLETED!")
     return pdf_url
 
 def process_translate(arxiv_id: str, job_id: str) -> str:
@@ -315,7 +316,7 @@ def translate_route():
         arxiv_id = request.form.get('arxiv_id')
         job_id = str(uuid.uuid4())
         threading.Thread(target=process_translate, args=(arxiv_id, job_id)).start()
-    return render_template('translate.j2', job_id=job_id)
+    return render_template('translate.j2', job_id=job_id, arxiv_id=arxiv_id)
 
 @APP.route('/pdf/<path:filename>')
 def serve_pdf(filename: str):
