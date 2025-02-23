@@ -1,72 +1,112 @@
 """メイン"""
 
-from .file_utils import download_arxiv_source, unfreeze_targz, copy_item, copy_pdf_file
-from .openai_chat import OpenAIChat
-from .tex_compiler import find_tex_files, find_main_tex, compile_tex
-from .tex_translator_utils import split_tex_to_chunks, insert_after_documentclass, extract_quoted_text
-
-import yaml
+import logging
+from pathlib import Path
+import sys
 from tqdm import tqdm
+from jinja2 import Environment, FileSystemLoader
+from .file_utils import download_arxiv_source, unfreeze_targz, copy_item, find_files_by_ext, find_main_tex
+from .openai_chat import OpenAIChat
+from .tex_compiler import compile_tex
+from .tex_translator_utils import split_tex_to_chunks, insert_text_after_documentclass, remove_comments, reduce_newlines, is_only_commands, parse_code_blocks
+from .config import TranslatorConfig
 
+def setup_logger():
+    """ロガーのセットアップ"""
+    logger = logging.getLogger()  # ルートロガーを取得
+    logger.setLevel(logging.INFO)
 
-def translate(arxiv_id: str):
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    ch.setFormatter(formatter)
+
+    logger.addHandler(ch)
+    return logger
+
+logger = setup_logger()
+
+def translate(arxiv_id: str,
+              template_dir = None,
+              working_dir: Path = None,
+              output_dir: Path = None,
+              openai_api_key = None):
     """翻訳実行
 
     Args:
         arxiv_id (str): arxivのid
     """
 
-    with open("/config/api_keys.yml", "r", encoding="utf-8") as file:
-        data = yaml.safe_load(file)
-    api_key = data["OPENAI_API_KEY"]
+    config = TranslatorConfig.load()
+    if template_dir is None:
+        template_dir = config.template_dir
+    if working_dir is None:
+        working_dir = config.working_dir
+    if output_dir is None:
+        output_dir = config.output_dir
+    if openai_api_key is None:
+        openai_api_key = config.openai_api_key
 
-    with open("/config/configs.yml", "r", encoding="utf-8") as file:
-        data = yaml.safe_load(file)
+    # 前処理
 
-    filepath = data["filepath"]
-    inserting_pre_text = data['tex']['pre_text'].replace("\\", "\\\\")
-    template = data["prompt"]["translate"]["en_to_ja"]
+    ## ダウンロード
+    targz_path = download_arxiv_source(arxiv_id=arxiv_id, output_dir=working_dir)
 
-    # 0. ダウンロード
-    targz_path = download_arxiv_source(
-        arxiv_id=arxiv_id, output_dir=filepath["tar_gz"])
-    # 1. tarの解凍
-    raw_data_path = unfreeze_targz(
-        targz_path=targz_path, output_dir=filepath["raw"])
-    # 2. 作業
-    copy_item(src=raw_data_path,
-              dst=filepath["work"]+f"/arxiv-{arxiv_id}", overwrite=True)
-    translator = OpenAIChat(api_key=api_key, model="gpt-4o", template=template)
+    ## tarの解凍
+    raw_data_path = unfreeze_targz(targz_path, output_dir=working_dir)
 
-    main_tex_path = find_main_tex(
-        source_dir=filepath["work"]+f"/arxiv-{arxiv_id}")
-    with open(main_tex_path, 'r', encoding='utf-8') as file:
-        print(main_tex_path)
-        main_tex_contents = file.read()
-        main_tex_contents = insert_after_documentclass(contents=main_tex_contents,
-                                                       inserting_pre_text=inserting_pre_text)
-    with open(main_tex_path, 'w', encoding='utf-8') as file:
-        file.write(main_tex_contents)
+    ## 作業場所へのコピー
+    tex_dir = raw_data_path.parent/(raw_data_path.name+"-translated")
+    copy_item(src=raw_data_path, dst=tex_dir, overwrite=True)
 
-    file_paths = find_tex_files(
-        source_dir=f"/data/2_working_data/arxiv-{arxiv_id}")
 
-    for file_path in file_paths:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            tex_contents = file.read()
-        # テキスト分割
-        tex_chunks = split_tex_to_chunks(contents=tex_contents,
-                                         token_counter=translator.count_tokens)
-        # 翻訳
-        translated_chunks = []
-        for tex_chunk in tqdm(tex_chunks):
-            translated_chunk = translator(tex_chunk)
-            translated_chunk = extract_quoted_text(translated_chunk)
-            translated_chunks.append(translated_chunk)
-        translated_tex_contents = "".join(translated_chunks)
-        with open(file_path, 'w', encoding='utf-8') as file:
-            file.write(translated_tex_contents)
+    # 本処理
 
+    ## 翻訳用のLLM
+    jinja_env = Environment(loader=FileSystemLoader(template_dir))
+    translator = OpenAIChat(api_key=openai_api_key,
+                            model="gpt-4o",
+                            template=jinja_env.get_template('prompt_en_to_ja.j2'))
+
+    ## 日本語パッケージの追加
+    main_tex_path = find_main_tex(tex_dir)
+    main_tex_contents = main_tex_path.read_text('utf-8')
+    main_tex_contents = insert_text_after_documentclass(content=main_tex_contents,
+                                                        template=jinja_env.get_template('tex_style_ja.j2')
+                                                        )
+    main_tex_path.write_text(main_tex_contents, encoding='utf-8')
+
+    ## テキスト分割
+    tex_file_paths = find_files_by_ext(tex_dir, "tex")
+    for file_path in tex_file_paths:
+        logging.info(file_path)
+        file_path = Path(file_path)
+        tex_content = file_path.read_text('utf-8')
+        tex_content = remove_comments(tex_content)
+        tex_content = reduce_newlines(tex_content)
+        if is_only_commands(tex_content):
+            continue
+        else:
+            # テキスト分割
+            tex_chunks = split_tex_to_chunks(content=tex_content,
+                                             token_counter=translator.count_tokens)
+            # 翻訳
+            translated_chunks=[]
+            for tex_chunk in tqdm(tex_chunks, desc="翻訳中..."):
+                if f"% skip start\n" in tex_chunk:
+                    translated_chunks.append(tex_chunk)
+                    logger.info("翻訳スキップ")
+                else:
+                    translated_chunk = translator(tex_chunk)
+                    translated_chunk = parse_code_blocks(translated_chunk)[0]["code"]
+                    translated_chunks.append(translated_chunk)
+            translated_tex_contents = "".join(translated_chunks)
+            file_path.write_text(translated_tex_contents, encoding='utf-8')
+
+    ## コンパイル
     compile_tex(source_file_path=main_tex_path)
-    copy_pdf_file(f"/data/2_working_data/arxiv-{arxiv_id}",
-                  f"/data/3_output_data/{arxiv_id}_ja.pdf")
+
+    ## 結果
+    compiled_pdf_path = find_files_by_ext(tex_dir, ext="pdf", single=True)
+    copy_item(src=compiled_pdf_path, dst= Path(output_dir) / f"{arxiv_id}_ja.pdf")

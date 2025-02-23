@@ -1,60 +1,42 @@
 """texをコンパイルするための諸々"""
 
+import time
+import logging
 from pathlib import Path
 import subprocess
 
+logger = logging.getLogger(__name__)
 
-def find_tex_files(source_dir: str) -> list:
-    """指定されたディレクトリ内のすべての .tex ファイルを取得する。
-
-    Args:
-        source_dir (str): 検索対象のディレクトリ
-
-    Returns:
-        list: texファイルのリスト
-    """
-
-    # 指定されたディレクトリ内のすべての .tex ファイルを取得
-    tex_paths = Path(source_dir).rglob("*.tex")
-
-    return tex_paths
-
-def find_main_tex(source_dir: str) -> str:
-    """入力されたディレクトリから、mainのtexファイルを探す。
-
-    Args:
-        source_dir (str): 探索するディレクトリ
-
-    Raises:
-        ValueError: 適切なtexファイルが見つからなかった。
-
-    Returns:
-        str: texのファイルパス
-    """
-
-    tex_files = find_tex_files(source_dir=source_dir)
-
-    main_tex_file: str = None
-    # .tex ファイルを探索して \documentclass を含む最初のファイルを探す
-    for tex_file in tex_files:
-        with open(tex_file, 'r', encoding='utf-8') as file:
-            if '\\documentclass' in file.read():
-                main_tex_file = tex_file
-
-    if main_tex_file is None:
-        raise ValueError(f"適切なtexファイルが見つかりませんでした。 {source_dir}")
-    else:
-        return main_tex_file
-
-def compile_tex(source_file_path: str, working_dir: str = None):
+def compile_tex(source_file_path: Path,
+                working_dir: Path = None,
+                max_attempts: int = 5,
+                delay: int = 2):
     """texファイルをコンパイルする。
 
     Args:
         source_file_path (Path): コンパイルしたいtexファイルのパス
-        working_dir (Path, optional): 作業ディレクトリ. 指定がなければsource_file_pathの親ディレクトリになる。
+        working_dir (Path, optional): 作業ディレクトリ。指定がなければsource_file_pathの親ディレクトリになる。
+        max_attempts (int, optional): コンパイルの最大試行回数 (デフォルトは3回)
+        delay (int, optional): 失敗時の再試行までの待機秒数 (デフォルトは2秒)
     """
-
     if working_dir is None:
-        working_dir = Path(source_file_path).parent
-    command = ["latexmk", "-lualatex", "-interaction=nonstopmode", source_file_path]
-    subprocess.run(command, cwd=working_dir, check=True, text=True, capture_output=True)
+        working_dir = source_file_path.parent
+
+    command = ["latexmk", "-lualatex", "-interaction=nonstopmode", str(source_file_path)]
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            result = subprocess.run(command,
+                                    cwd=working_dir,
+                                    check=True,
+                                    text=True,
+                                    capture_output=True)
+            logger.info("コンパイル成功.")
+            return result
+        except subprocess.CalledProcessError as e:
+            logger.warning("試行 %d でコンパイルに失敗しました: %s", attempt, e)
+            if attempt < max_attempts:
+                logger.info("再試行します...")
+                time.sleep(delay)
+
+    logger.error("コンパイルが %d 回の試行の後も失敗しました。")
