@@ -93,7 +93,9 @@ def copy_item(src: Path, dst: Path, overwrite=False):
         raise ValueError(f"無効なコピー元: {src}")
 
 def find_files_by_ext(source_dir: Path, ext: str, single=False) -> list:
-    """指定されたディレクトリ内のすべての .tex ファイルを取得する。
+    """指定されたディレクトリ内の, extを拡張子に持つすべてのファイルを取得する。
+    例:
+        file_file_by_ext("/path/to/source", "tex")
 
     Args:
         source_dir (str): 検索対象のディレクトリ

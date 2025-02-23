@@ -73,13 +73,13 @@ def split_tex_contents(content: str, flag=r"\section") -> list:
     return results
 
 def split_tex_into_subsubsections(contents: str) -> list:
-    """_summary_
+    """texのコンテンツをsubsubsectionに分割してリストにする.
 
     Args:
-        contents (_type_): _description_
+        contents (str): texファイルの中身
 
     Returns:
-        _type_: _description_
+        list: subsubsectionのリスト
     """
 
     sections = split_tex_contents(content=contents, flag=r"\section")

@@ -44,6 +44,11 @@ class TranslatorConfig:
 
     @classmethod
     def load(cls) -> "TranslatorConfig":
+        """`~/.arxiv_translator/config.yaml`からconfigを読み込む.
+
+        Returns:
+            TranslatorConfig: 読み込まれたConfig
+        """
         config_path = Path.home() / ".arxiv_translator" / "config.yaml"
         try:
             with config_path.open("r", encoding="utf-8") as f:
@@ -71,6 +76,7 @@ class TranslatorConfig:
             return default_config
 
     def save(self):
+        """`~/.arxiv_translator/config.yaml`にconfigを保存する."""
         config_dir = Path.home() / ".arxiv_translator"
         config_dir.mkdir(parents=True, exist_ok=True)
         config_path = config_dir / "config.yaml"
