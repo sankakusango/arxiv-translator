@@ -10,7 +10,7 @@ from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 
-def download_arxiv_source(arxiv_id: str, output_dir: Path):
+def download_arxiv_source(arxiv_id: str, output_dir: Path, logger: logging.Logger = logger):
     """arXivのページから、コンパイル前のデータの圧縮されたデータをダウンロードする。
 
     Args:
@@ -37,9 +37,9 @@ def download_arxiv_source(arxiv_id: str, output_dir: Path):
         logger.info("ダウンロード成功, from %s to: %s", arxiv_id, output_path)
         return output_path
     else:
-        raise ValueError(f"Failed to download. HTTP status code: {response.status_code}")
+        raise ValueError(f"ダウンロード失敗. URL: {url}, HTTP status code: {response.status_code}")
 
-def unfreeze_targz(targz_path: Path, output_dir: Path) -> Path:
+def unfreeze_targz(targz_path: Path, output_dir: Path, logger: logging.Logger = logger) -> Path:
     """.tar.gzの解凍をする。
 
     Args:
@@ -58,7 +58,7 @@ def unfreeze_targz(targz_path: Path, output_dir: Path) -> Path:
 
     return output_path
 
-def copy_item(src: Path, dst: Path, overwrite=False):
+def copy_item(src: Path, dst: Path, overwrite=False, logger: logging.Logger = logger):
     """
     ファイルまたはフォルダをコピーする汎用関数
 
@@ -85,10 +85,10 @@ def copy_item(src: Path, dst: Path, overwrite=False):
     # ファイルかフォルダかを判定してコピー
     if src.is_file():
         shutil.copy2(src, dst)
-        logger.info("成功, ファイルコピー from %s to: %s", src, dst)
+        logger.info("ファイルコピー成功, from %s to: %s", src, dst)
     elif src.is_dir():
         shutil.copytree(src, dst, dirs_exist_ok=overwrite)
-        logger.info("成功, ディレクトリコピー from %s to: %s", src, dst)
+        logger.info("ディレクトリコピー成功, from %s to: %s", src, dst)
     else:
         raise ValueError(f"無効なコピー元: {src}")
 

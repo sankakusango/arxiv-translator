@@ -2,33 +2,56 @@ import sys
 import argparse
 from pathlib import Path
 from .translator import translate
-from .config import TranslatorConfig
+from .config import TranslatorConfig, mask_openai_key, show
 import colorama
 from colorama import Fore, Style
+import logging
+
+logger = logging.getLogger(__name__)
 
 def main():
     """CLIでarxiv-translateと打ったときの挙動"""
+
     parser = argparse.ArgumentParser(
         prog='arxiv-translate',
         description='Arxiv Translate Utility \n\n例1: arxiv-translate 1000.20000v1\n-> 論文の翻訳ができる.\n\n例2: arxiv-translate config\n->デフォルトのファイルパスの指定などができる.',
         formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument('arxiv_id', help="実行するコマンド。 'config' を指定すると設定を実行、それ以外は翻訳対象のファイル名として扱います。")
+    parser.add_argument('arxiv_id', type=str, nargs='?', default=None, help="実行するコマンド。 'config' を指定すると設定を実行、それ以外は翻訳対象のファイル名として扱います。")
     parser.add_argument('--working_dir', type=str, default=None, help="作業ディレクトリのパスを指定します。")
     parser.add_argument('--template_dir', type=str, default=None, help="テンプレートディレクトリのパスを指定します。")
     parser.add_argument('--output_dir', type=str, default=None, help="出力ディレクトリのパスを指定します。")
     parser.add_argument('--openai_api_key', type=str, default=None, help="OpenAI APIキーを指定します。")
     args = parser.parse_args()
 
+    if args.arxiv_id is None:
+        parser.print_help()
+        return
+
     if args.arxiv_id == "config":
         update_config_interactive()
     else:
+        current_config = TranslatorConfig.load()
+        
+        arxiv_id = args.arxiv_id
+        if args.working_dir is not None:
+            current_config.working_dir  = args.working_dir
+        if args.template_dir is not None:
+            current_config.template_dir = args.template_dir
+        if args.output_dir is not None:
+            current_config.output_dir = args.output_dir
+        if args.openai_api_key is not None:
+            current_config.openai_api_key = args.openai_api_key
+        
+        show({"arxiv_id": arxiv_id}, logger=logger, border_color=Fore.GREEN, text_color=Fore.LIGHTGREEN_EX)
+        current_config.show()
+        
         translate(
-            args.arxiv_id,
-            working_dir=args.working_dir,
-            template_dir=args.template_dir,
-            output_dir=args.output_dir,
-            openai_api_key=args.openai_api_key
+            arxiv_id,
+            working_dir=current_config.working_dir,
+            template_dir=current_config.template_dir,
+            output_dir=current_config.output_dir,
+            openai_api_key=current_config.openai_api_key
         )
 
 def update_config_interactive():
@@ -41,13 +64,7 @@ def update_config_interactive():
     template_dir = input(f"{Style.RESET_ALL}読み込むテンプレートのディレクトリ: {Fore.CYAN}{current_config.template_dir}{Style.RESET_ALL} -> {Fore.GREEN}")
     output_dir = input(f"{Style.RESET_ALL}PDFファイルを出力するディレクトリ: {Fore.CYAN}{current_config.output_dir}{Style.RESET_ALL} -> {Fore.GREEN}")
     current_openai_api_key = current_config.openai_api_key
-    display_text =""
-    if current_openai_api_key is None:
-        display_text = "default"
-    elif len(current_openai_api_key) <=4:
-        display_text = current_openai_api_key
-    else:
-        display_text = current_openai_api_key[:4] + "*" * (len(current_openai_api_key) - 4)
+    display_text = mask_openai_key(current_openai_api_key)
     openai_api_key = input(f"{Style.RESET_ALL}利用する`OPENAI_API_KEY` (`default`を指定すれば環境変数の`OPENAI_API_KEY`が利用される): {Fore.CYAN}{display_text}{Style.RESET_ALL} -> {Fore.GREEN}")
     print(Style.RESET_ALL, end="") 
     # ユーザーの入力テキストの処理 (working_dir).
@@ -86,3 +103,6 @@ def update_config_interactive():
                                   template_dir=template_dir, 
                                   output_dir=output_dir)
     new_config.save()
+
+if __name__ == "__main__":
+    main()

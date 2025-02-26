@@ -3,9 +3,39 @@ from pathlib import Path
 import logging
 import os
 import yaml
+from colorama import Fore, Style
 
-logger = logging.getLogger(__name__)
-here = Path(__file__).resolve().parent
+LOGGER = logging.getLogger(__name__)
+HERE = Path(__file__).resolve().parent
+
+def mask_openai_key(text: str, reveal: int=4, max_size=10):
+    reveal = int(reveal)
+    max_size = int(max_size)
+    if text is None:
+        text = "default"
+    elif len(text) <=reveal:
+        text = text
+    else:
+        text = text[:reveal] + "*" * min((len(text) - reveal), max_size)
+    return text
+
+def show(data: dict, 
+         logger: logging.Logger, 
+         border_color = Fore.BLUE, 
+         text_color = Fore.CYAN):
+
+    # "key: value"の形式でリスト化
+    lines = [f"{key}: {value}" for key, value in data.items()]
+    max_length = max(len(line) for line in lines)
+    
+    # Unicodeのボックス描画文字で枠を作成
+    top_border = f"{border_color}┌{'─' * max_length}┐{Style.RESET_ALL}"
+    bottom_border = f"{border_color}└{'─' * max_length}┘{Style.RESET_ALL}"
+    
+    logger.info(top_border)
+    for line in lines:
+        logger.info(f"{border_color}│{text_color}{line.ljust(max_length)}{border_color}│{Style.RESET_ALL}")
+    logger.info(bottom_border)
 
 @dataclass
 class TranslatorConfig:
@@ -15,6 +45,7 @@ class TranslatorConfig:
     working_dir: Path
     template_dir: Path
     output_dir: Path
+    logger: logging.Logger = LOGGER
 
     def __post_init__(self):
 
@@ -24,26 +55,26 @@ class TranslatorConfig:
         if isinstance(self.working_dir, Path):
             pass
         elif str(self.working_dir).strip().lower() in ["", "none"]:
-            self.working_dir = here.parent.parent / "data/tmp"
+            self.working_dir = HERE.parent.parent / "tmp"
         else:
             self.working_dir = Path(self.working_dir)
 
         if isinstance(self.template_dir, Path):
             pass
         elif str(self.template_dir).strip().lower() in ["", "none"]:
-            self.template_dir = here.parent.parent / "templates"
+            self.template_dir = HERE.parent.parent / "templates"
         else:
             self.template_dir = Path(self.template_dir)
 
         if isinstance(self.output_dir, Path):
             pass
         elif str(self.output_dir).strip().lower() in ["", "none"]:
-            self.output_dir = here.parent.parent / "data"
+            self.output_dir = HERE.parent.parent / "outputs"
         else:
             self.output_dir = Path(self.output_dir)
 
     @classmethod
-    def load(cls) -> "TranslatorConfig":
+    def load(cls, logger: logging.Logger = LOGGER) -> "TranslatorConfig":
         """`~/.arxiv_translator/config.yaml`からconfigを読み込む.
 
         Returns:
@@ -64,9 +95,9 @@ class TranslatorConfig:
                 "template_dir": Path(data["TEMPLATE_DIR"]),
                 "output_dir": Path(data["OUTPUT_DIR"])
             }
-            return cls(**loaded_data)
+            return cls(**loaded_data, logger=logger)
         except Exception as e:
-            logger.warning("Load default config because could not find correct config. %s", e, exc_info=True)
+            logger.warning("Load default config because could not find correct config. %s", e)
             default_config = TranslatorConfig(
                 None,
                 None,
@@ -88,7 +119,20 @@ class TranslatorConfig:
         }
         with config_path.open("w", encoding="utf-8") as f:
             yaml.dump(data, f)
-        logger.info("saved: %s", config_path)
+        self.logger.info("saved: %s", config_path)
         # ファイルのパーミッションを所有者のみ (rw-------) に設定
         os.chmod(config_path, 0o600)
-        logger.info("permittion only to rw-------: %s", config_path)
+        self.logger.info("permittion only to rw-------: %s", config_path)
+
+    def show(self):
+        data = {
+            "OPENAI_API_KEY": mask_openai_key(self.openai_api_key),
+            "WORKING_DIR": str(self.working_dir),
+            "TEMPLATE_DIR": str(self.template_dir),
+            "OUTPUT_DIR": str(self.output_dir)
+        }
+        show(data = data, logger = self.logger)
+            
+if __name__ == "__main__":
+    config = TranslatorConfig.load()
+    config.show()

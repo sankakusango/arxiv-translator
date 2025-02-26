@@ -96,7 +96,8 @@ def split_tex_into_subsubsections(contents: str) -> list:
 
 def split_tex_to_chunks(content: str,
                         token_counter: callable = len,
-                        chunk_size: int = None
+                        chunk_size: int = 2048,
+                        logger: logging.Logger = logger,
                         ) -> list:
     """texファイルを翻訳のためにチャンク分けする。
 
@@ -111,7 +112,7 @@ def split_tex_to_chunks(content: str,
     chunks: list = []
 
     if r"\begin{document}" in content:
-        logger.info(r"\begin{document}が含まれていたので、この箇所でもチャンクを区切ります。")
+        logger.info(r"\begin{document}が含まれていたので、この箇所でチャンクを区切ります。")
         contents = split_tex_contents(content, r"\begin{document}")
         chunks.append(f"% skip start\n{contents.pop(0)}\n% skip end\n")
         content = "".join(contents)
@@ -119,10 +120,12 @@ def split_tex_to_chunks(content: str,
     subsubsections = split_tex_into_subsubsections(content)
 
     max_size = max([token_counter(subsubsection) for subsubsection in subsubsections])
+    logger.info("最大チャンクサイズ: %s", chunk_size)
+    logger.info("subsubsectionの最大トークン数: %s", max_size)
     if chunk_size is None:
         chunk_size = max_size
     elif max_size > chunk_size:
-        logger.warning("Some chunks are larger than chunk_size. max_size: %d", max_size)
+        logger.warning("既定した最大chunk_sizeを超えるサイズのsubsubsectionがあります. chunk_size: %d, max_size: %d", chunk_size, max_size)
 
     chunk = ""
     for subsubsection in subsubsections:
@@ -133,14 +136,15 @@ def split_tex_to_chunks(content: str,
             chunk += subsubsection
 
     chunks.append(chunk)
+    logger.info("総チャンク数: %s", len(chunks))
     return chunks
 
-def insert_text_after_documentclass(content: str, template: Template) -> str:
+def insert_text_after_documentclass(content: str, template: Template, logger: logging.Logger = logger,) -> str:
     """documentclassの次の行にテキストを挿入（jinja2を利用）
 
     Args:
         content (str): 元のTeXテキスト
-        inserting_pre_text (str): 挿入するテキスト
+        template: 利用するテンプレファイル(`{{ documentclass_command }})追加するブロック{{ content }}`の形式)
 
     Returns:
         str: 挿入後のテキスト
@@ -154,15 +158,15 @@ def insert_text_after_documentclass(content: str, template: Template) -> str:
     rest = content[match.end():]
 
     if isinstance(template, str):
-        logging.info("Templateに変換します.")
-        template = Template(template, undefined=StrictUndefined)
+        logging.warning("引数templateに受け取ったテキストを差し込むと解釈します。template: %d", template)
+        return documentclass_line + "\n\n" + template + "\n\n" +rest
 
     return template.render(
         documentclass_command=documentclass_line,
         content=rest
     )
 
-def remove_comments(tex_content: str) -> str:
+def remove_comments(tex_content: str, logger: logging.Logger = logger,) -> str:
     """
     与えられた文字列（複数行）から LaTeX のコメントを削除して返す関数。
     
@@ -186,9 +190,13 @@ def remove_comments(tex_content: str) -> str:
             new_line_chars.append(ch)
         # 結果
         processed_lines.append("".join(new_line_chars))
+    
+    output_content = "\n".join(processed_lines)
+    
+    logging.info(f"コメントの削減: {len(tex_content)} -> {len(output_content)}")
 
     # 処理後の行を改行でつないで返す
-    return "\n".join(processed_lines)
+    return output_content
 
 def reduce_newlines(text: str) -> str:
     """複数の連続する空行（または半角スペースだけの行）を最大1行にまとめます。

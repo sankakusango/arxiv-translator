@@ -5,7 +5,18 @@ from jinja2 import Template, StrictUndefined
 from openai import OpenAI
 import tiktoken
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
+
+def mask_openai_key(text: str, reveal: int=4, max_size=10):
+    reveal = int(reveal)
+    max_size = int(max_size)
+    if text is None:
+        text = "default"
+    elif len(text) <=reveal:
+        text = text
+    else:
+        text = text[:reveal] + "*" * min((len(text) - reveal), max_size)
+    return text
 
 class OpenAIChat:
     """OpenAIのAPIを叩いて出力させるクラス"""
@@ -15,8 +26,10 @@ class OpenAIChat:
     _client: OpenAI
     _template: Template = Template("{{ prompt }}", undefined=StrictUndefined)
     _output_formatter: callable = lambda self, x: x
+    
+    _logger: logging.Logger = LOGGER
 
-    def __init__(self, model: str, api_key: str = None, template: Template = None, output_formatter: callable = None):
+    def __init__(self, model: str, api_key: str = None, template: Template = None, output_formatter: callable = None, logger: logging.Logger = LOGGER):
 
         self.api_key = api_key
         self.model = model
@@ -24,6 +37,8 @@ class OpenAIChat:
             self.template = template
         if output_formatter is not None:
             self.output_formatter = output_formatter
+
+        self._logger = logger
 
     @property
     def api_key(self):
@@ -36,7 +51,7 @@ class OpenAIChat:
         if value is not None:
             self._api_key = value
         else:
-            logger.info("apiキーを環境変数`OPENAI_API_KEY`から取得します.")
+            self._logger.info("apiキーを環境変数`OPENAI_API_KEY`から取得します.")
             openai_api_key = os.getenv("OPENAI_API_KEY")
             if openai_api_key is None:
                 raise ValueError("環境変数`OPENAI_API_KEY`が設定されていません。")

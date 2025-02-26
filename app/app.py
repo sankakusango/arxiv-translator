@@ -4,9 +4,11 @@ import threading
 import uuid
 from queue import Queue, Empty
 import os
-import redis
 from flask import Flask, request, render_template, Response, send_from_directory
+import redis
 from fpdf import FPDF
+from arxiv_translator import translate, TranslatorConfig
+from pathlib import Path
 
 # --- 基本設定 ---
 APP = Flask(__name__)
@@ -15,6 +17,12 @@ os.makedirs(PDF_DIR, exist_ok=True)
 
 # 並列実行の上限数
 CONCURRENCY_LIMIT = 2
+
+translator_config = TranslatorConfig.load()
+OPENAI_API_KEY = translator_config.openai_api_key
+WORKING_DIR    = translator_config.working_dir
+TEMPLATE_DIR   = translator_config.template_dir
+OUTPUT_DIR     = translator_config.output_dir
 
 # --- ロギング設定 ---
 def setup_global_logger() -> logging.Logger:
@@ -119,7 +127,7 @@ class JobQueues:
             logger.setLevel(logging.INFO)
             job_handler = JobQueueHandler(queue)
             job_handler.setLevel(logging.INFO)
-            formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+            formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
             job_handler.setFormatter(formatter)
             logger.addHandler(job_handler)
             self.loggers[job_id] = logger
@@ -194,11 +202,11 @@ class JobQueues:
             if current < self.concurrency_limit:
                 self.increment_slot()
                 if self.current_slots() <= self.concurrency_limit:
-                    logger.info(f"Acquired for {arxiv_id} (current running: {current})")
+                    logger.info(f"Queue acquired for {arxiv_id} (current running: {current})")
                     break
                 else:
                     self.decrement_slot()
-            logger.info(f"Waiting for {arxiv_id} (currently running: {current})")
+            logger.info(f"Queue waiting for {arxiv_id} (currently running: {current})")
             time.sleep(1)
 
 # Redis 接続およびジョブキューのインスタンス生成
@@ -206,21 +214,9 @@ global_job_queues = JobQueues(parent_logger=global_logger,
                               redis_conn=redis.Redis(),
                               concurrency_limit=CONCURRENCY_LIMIT)
 
-def create_pdf(path: str, content: str):
-    """
-    指定したパスに PDF ファイルを生成する
 
-    Args:
-        path (str): 出力する PDF ファイルのパス
-        content (str): PDF 内に記載するテキストコンテンツ
-    """
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.multi_cell(0, 10, content)
-    pdf.output(path)
 
-def translate(arxiv_id: str, logger: logging.Logger) -> str:
+def dummy_translate(arxiv_id: str, logger: logging.Logger) -> str:
     """
     ダミーの翻訳処理を行い、PDF を生成する。
     各処理ステップごとにログを出力する。
@@ -245,9 +241,6 @@ def translate(arxiv_id: str, logger: logging.Logger) -> str:
 
     safe_id = arxiv_id.replace("/", "_")
     pdf_filename = f"{safe_id}.pdf"
-    pdf_path = os.path.join(PDF_DIR, pdf_filename)
-    create_pdf(pdf_path, f"PDF generated for arxiv_id: {arxiv_id}\n\nThis is a dummy PDF content.")
-
     pdf_url = f"/pdf/{pdf_filename}"
     logger.info(f"PDF generated at: {pdf_url}")
     logger.info(f"PDF_LINK: {pdf_url}")
@@ -273,7 +266,20 @@ def process_translate(arxiv_id: str, job_id: str) -> str:
 
     try:
         global_job_queues.acquire_slot(job_id)
-        result = translate(arxiv_id, logger)
+        result = translate(arxiv_id, 
+                           template_dir   = TEMPLATE_DIR,
+                           working_dir    = WORKING_DIR,
+                           output_dir     = OUTPUT_DIR,
+                           openai_api_key = OPENAI_API_KEY,
+                           model          = "gpt-4o",
+                           logger         = logger)
+        if isinstance(result, Path):
+            result = Path("/pdf") / result.name
+            logger.info(f"PDF_LINK: {result}")
+        else:
+            logger.error("FAILED.")
+    except Exception as e:
+            logger.error(e)
     finally:
         global_job_queues.release(job_id)
     return result
@@ -312,6 +318,7 @@ def translate_route():
         str: レンダリング済みテンプレート
     """
     job_id = ""
+    arxiv_id = ""
     if request.method == 'POST':
         arxiv_id = request.form.get('arxiv_id')
         job_id = str(uuid.uuid4())
@@ -329,7 +336,7 @@ def serve_pdf(filename: str):
     Returns:
         Response: PDF ファイルのレスポンス
     """
-    return send_from_directory("/arxiv-translator/pdfs", filename)
+    return send_from_directory("/arxiv-translator/pdf", filename)
 
 if __name__ == '__main__':
     APP.run(debug=True, threaded=True)

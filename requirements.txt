@@ -2,3 +2,5 @@ Flask
 jupyterlab
 openai
 tiktoken
+colorama
+redis

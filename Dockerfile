@@ -13,10 +13,14 @@ RUN apt-get install -y \
     vim \
     git-lfs \
     sqlite3 \
-    texlive-full
+    texlive-full \
+    redis
 
 RUN git lfs install
 
 RUN pip install jupyterlab
 COPY requirements.txt ./
 RUN pip install -r ./requirements.txt
+
+COPY ./src ./copied_src
+RUN pip install -e ./copied_src/
