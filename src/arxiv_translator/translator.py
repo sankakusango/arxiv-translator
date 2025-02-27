@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from tqdm import tqdm
 from jinja2 import Environment, FileSystemLoader
-from .file_utils import download_arxiv_source, unfreeze_targz, copy_item, find_files_by_ext, find_main_tex
+from .file_utils import download_arxiv_source, unfreeze_targz, copy_item, find_files_by_ext, find_main_tex, extract_arxiv_id
 from .openai_chat import OpenAIChat
 from .tex_compiler import compile_tex
 from .tex_translator_utils import split_tex_to_chunks, insert_text_after_documentclass, remove_comments, reduce_newlines, is_only_commands, parse_code_blocks
@@ -53,6 +53,7 @@ def translate(arxiv_id: str,
     # 前処理
 
     ## ダウンロード
+    arxiv_id = extract_arxiv_id(arxiv_id)
     targz_path = download_arxiv_source(arxiv_id=arxiv_id, output_dir=config.working_dir, logger=logger)
 
     ## tarの解凍

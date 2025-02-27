@@ -7,10 +7,34 @@ from pathlib import Path
 import logging
 import requests
 from jinja2 import Template
+import re
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
-def download_arxiv_source(arxiv_id: str, output_dir: Path, logger: logging.Logger = logger):
+def extract_arxiv_id(text: str) -> str:
+    """
+    入力文字列から arXiv のIDを抽出します。
+    対応パターン:
+      - URL (例: https://arxiv.org/abs/1234.56789v2 や https://arxiv.org/pdf/1234.56789v2.pdf)
+      - 直接のID (例: 1234.56789, 1234.56789v2, cs/0112017, cs/0112017v2)
+      - プレフィックス付き (例: arxiv:1234.56789)
+    """
+    pattern = re.compile(
+        r'(?:https?://(?:www\.)?arxiv\.org/(?:abs|pdf)/)?'  # URL形式の先頭部分（任意）
+        r'(?:arxiv:)?'                                      # "arxiv:"プレフィックス（任意）
+        r'('                                               # キャプチャ開始
+            r'(?:[a-z\-]+/\d{7}|'                           # 旧形式: 例) cs/0112017
+            r'\d{4}\.\d{4,5})'                              # 新形式: 例) 1234.56789
+            r'(?:v\d+)?'                                   # オプション: バージョン番号（例: v2）
+        r')'
+    )
+    match = pattern.search(text)
+    if not match:
+        raise ValueError(f"arxiv_idの抽出失敗 from `{text}`")
+    else:
+        return match.group(1)
+
+def download_arxiv_source(arxiv_id: str, output_dir: Path, logger: logging.Logger = LOGGER):
     """arXivのページから、コンパイル前のデータの圧縮されたデータをダウンロードする。
 
     Args:
@@ -39,7 +63,7 @@ def download_arxiv_source(arxiv_id: str, output_dir: Path, logger: logging.Logge
     else:
         raise ValueError(f"ダウンロード失敗. URL: {url}, HTTP status code: {response.status_code}")
 
-def unfreeze_targz(targz_path: Path, output_dir: Path, logger: logging.Logger = logger) -> Path:
+def unfreeze_targz(targz_path: Path, output_dir: Path, logger: logging.Logger = LOGGER) -> Path:
     """.tar.gzの解凍をする。
 
     Args:
@@ -58,7 +82,7 @@ def unfreeze_targz(targz_path: Path, output_dir: Path, logger: logging.Logger = 
 
     return output_path
 
-def copy_item(src: Path, dst: Path, overwrite=False, logger: logging.Logger = logger):
+def copy_item(src: Path, dst: Path, overwrite=False, logger: logging.Logger = LOGGER):
     """
     ファイルまたはフォルダをコピーする汎用関数
 

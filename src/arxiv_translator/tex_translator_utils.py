@@ -3,7 +3,7 @@ import re
 import logging
 from jinja2 import Template, StrictUndefined
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 
@@ -97,7 +97,7 @@ def split_tex_into_subsubsections(contents: str) -> list:
 def split_tex_to_chunks(content: str,
                         token_counter: callable = len,
                         chunk_size: int = 2048,
-                        logger: logging.Logger = logger,
+                        logger: logging.Logger = LOGGER,
                         ) -> list:
     """texファイルを翻訳のためにチャンク分けする。
 
@@ -139,7 +139,7 @@ def split_tex_to_chunks(content: str,
     logger.info("総チャンク数: %s", len(chunks))
     return chunks
 
-def insert_text_after_documentclass(content: str, template: Template, logger: logging.Logger = logger,) -> str:
+def insert_text_after_documentclass(content: str, template: Template, logger: logging.Logger = LOGGER) -> str:
     """documentclassの次の行にテキストを挿入（jinja2を利用）
 
     Args:
@@ -166,7 +166,7 @@ def insert_text_after_documentclass(content: str, template: Template, logger: lo
         content=rest
     )
 
-def remove_comments(tex_content: str, logger: logging.Logger = logger,) -> str:
+def remove_comments(tex_content: str, logger: logging.Logger = LOGGER) -> str:
     """
     与えられた文字列（複数行）から LaTeX のコメントを削除して返す関数。
     

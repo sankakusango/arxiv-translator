@@ -5,13 +5,13 @@ import logging
 from pathlib import Path
 import subprocess
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 def compile_tex(source_file_path: Path,
                 working_dir: Path = None,
                 max_attempts: int = 5,
                 delay: int = 2,
-                logger: logging.Logger = logger,
+                logger: logging.Logger = LOGGER,
                 ):
     """texファイルをコンパイルする。
 

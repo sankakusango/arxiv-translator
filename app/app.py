@@ -6,14 +6,12 @@ from queue import Queue, Empty
 import os
 from flask import Flask, request, render_template, Response, send_from_directory
 import redis
-from fpdf import FPDF
 from arxiv_translator import translate, TranslatorConfig
 from pathlib import Path
+import time
 
 # --- 基本設定 ---
 APP = Flask(__name__)
-PDF_DIR = "pdfs"
-os.makedirs(PDF_DIR, exist_ok=True)
 
 # 並列実行の上限数
 CONCURRENCY_LIMIT = 2
@@ -23,6 +21,7 @@ OPENAI_API_KEY = translator_config.openai_api_key
 WORKING_DIR    = translator_config.working_dir
 TEMPLATE_DIR   = translator_config.template_dir
 OUTPUT_DIR     = translator_config.output_dir
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # --- ロギング設定 ---
 def setup_global_logger() -> logging.Logger:
@@ -264,8 +263,12 @@ def process_translate(arxiv_id: str, job_id: str) -> str:
     global_job_queues.set(job_id, arxiv_id)
     _, logger, arxiv_id = global_job_queues.get(job_id)
 
+    result = None
     try:
         global_job_queues.acquire_slot(job_id)
+    except Exception:
+        logger.error("FAILED: キューの登録失敗")
+    try:
         result = translate(arxiv_id, 
                            template_dir   = TEMPLATE_DIR,
                            working_dir    = WORKING_DIR,
@@ -281,6 +284,7 @@ def process_translate(arxiv_id: str, job_id: str) -> str:
     except Exception as e:
             logger.error(e)
     finally:
+        time.sleep(1)
         global_job_queues.release(job_id)
     return result
 
@@ -325,6 +329,15 @@ def translate_route():
         threading.Thread(target=process_translate, args=(arxiv_id, job_id)).start()
     return render_template('translate.j2', job_id=job_id, arxiv_id=arxiv_id)
 
+@APP.route('/pdf/')
+def list_pdfs():
+    try:
+        # OUTPUT_DIR 内の PDF ファイルのみをリストアップ
+        files = [f for f in os.listdir(OUTPUT_DIR) if f.lower().endswith('.pdf')]
+        return render_template("pdf_list.j2", files=files)
+    except Exception as e:
+        return f"エラーが発生しました: {e}"
+
 @APP.route('/pdf/<path:filename>')
 def serve_pdf(filename: str):
     """
@@ -336,7 +349,7 @@ def serve_pdf(filename: str):
     Returns:
         Response: PDF ファイルのレスポンス
     """
-    return send_from_directory("/arxiv-translator/pdf", filename)
+    return send_from_directory(OUTPUT_DIR, filename)
 
 if __name__ == '__main__':
     APP.run(debug=True, threaded=True)
