@@ -27,7 +27,7 @@ docker-compose up -d
 翻訳したいarXivのドキュメントのID(例: 1234.56789) またはURL(例: `https://arxiv.org/abs/1234.56789v1`)を入力し,
 15分ほど待機することで翻訳したPDFをダウンロードできます.
 
-# Quickstart (CLI)
+# CLIとしての利用
 
 1. 本レポジトリを自環境にダウンロード.
 ```bash
@@ -45,9 +45,8 @@ git clone https://github.com/sankakusango/arxiv-translator.git
    `arxiv-translate {ARXIV_ID}`で翻訳できます.
    `ARXIV_ID`は翻訳したいarXivのドキュメントのID(例: 1234.56789) またはURL(例: `https://arxiv.org/abs/1234.56789v1`)で置き換えてください.
 
-# Advanced
+# Pythonライブラリとしての利用
 
-pythonライブラリとしても利用可能です.
 ```python
 import arxiv_translator.translate
 arxiv_translator.translate(
@@ -88,3 +87,29 @@ arxiv_translator.translate(
 - `model (str)`
   - 利用する翻訳モデルを指定します。
   - デフォルト: 'gpt-4o'
+
+# Advanced
+
+## 翻訳に失敗するとき
+
+作業ディレクトリの`{ARXIV_ID}-translated`を適切に書き換え,
+```python
+import arxiv_translator.compile_tex
+arxiv_translator.compile_tex(source_file_path)
+```
+を使って再コンパイルしてください.
+
+## よくあるカスタマイズ
+
+> [!WARNING]
+> WebUIを利用している場合, 変更後はコンテナをビルドし直してください.
+
+- 翻訳テンプレートの差し替え
+`templates/prompt_en_to_ja.j2`
+
+- 翻訳モデルの差し替え
+   - WebUIの場合: `app/app.py`にハードコードされている"gpt-4o"を他モデルに変えてください.
+   - `src/arxiv_translator/cli.py`の`translate`に`model="gpt-4o"`を追加してください.
+   
+- 翻訳のスキップルール等
+   - `src/arxiv_translator/translator.py`を書き換えてください.
