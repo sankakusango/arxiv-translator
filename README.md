@@ -65,7 +65,7 @@ arxiv_translator.translate(
 - `arxiv_id (str)`
   - 翻訳対象の arXiv 論文の ID を指定します。
 
-- `template_dir`
+- `template_dir (Path)`
   - 翻訳処理で使用するテンプレートファイルが格納されているディレクトリを指定します。
   - デフォルト: None
   - 指定しない場合は, `arxiv-translate config`の値が設定される.
@@ -80,7 +80,7 @@ arxiv_translator.translate(
   - デフォルト: None
   - 指定しない場合は, `arxiv-translate config`の値が設定される.
   - 
-- `openai_api_key`
+- `openai_api_key (str)`
   - 翻訳モデルへアクセスするための OpenAI API キーを指定します。
   - デフォルト: None
   - 指定しない場合は, `arxiv-translate config`の値が設定される.
