@@ -92,7 +92,7 @@ arxiv_translator.translate(
 
 ## 翻訳に失敗するとき
 
-作業ディレクトリの`{ARXIV_ID}-translated`を適切に書き換え,
+作業ディレクトリの`{ARXIV_ID}-translated`のtexファイルを適切に書き換え,
 ```python
 import arxiv_translator.compile_tex
 arxiv_translator.compile_tex(source_file_path)
